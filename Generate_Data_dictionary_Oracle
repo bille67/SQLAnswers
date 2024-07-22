@@ -1,0 +1,10 @@
+
+
+select owner TABLE_CATALOG, owner table_schema, table_name, column_name, data_type,
+nullable is_nullable,
+data_default column_default, data_length character_maximum_length,
+data_precision numeric_precision, data_scale numeric_scale,
+data_length
+from all_tab_columns
+where owner='ACME'
+order by table_name, column_id
