@@ -1,0 +1,6 @@
+select TABLE_CATALOG, table_schema, table_name, column_name, data_type, is_nullable,
+column_default, character_maximum_length,
+numeric_precision, numeric_scale, datetime_precision
+from INFORMATION_SCHEMA.columns
+where Table_CATALOG='ACME'
+order by table_name, ordinal_position;
