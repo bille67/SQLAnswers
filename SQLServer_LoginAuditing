@@ -1,0 +1,44 @@
+CREATE EVENT SESSION [LoginAudit] ON SERVER 
+ADD EVENT sqlserver.login(
+    ACTION (
+        sqlserver.client_hostname,
+        sqlserver.client_app_name,
+        sqlserver.username,
+        sqlserver.nt_username,
+        sqlserver.server_principal_name,
+        sqlserver.session_id
+    )
+)
+ADD TARGET package0.event_file (
+    SET filename = 'D:\MSSQL\XE\LoginAudit.xel',  -- MAKE SURE THIS DIRECTORY EXISTS AND SQL SERVER CAN READ/WRITE TO IT
+        max_file_size = 50,     -- MB
+        max_rollover_files = 5  -- keeps storage small
+)
+WITH (STARTUP_STATE = ON);
+GO
+
+ALTER EVENT SESSION [LoginAudit] ON SERVER STATE = START;
+
+
+with cte as (
+SELECT
+    DATEADD(hh, DATEDIFF(hh, GETUTCDATE(), CURRENT_TIMESTAMP), event_data.value('(event/@timestamp)[1]', 'datetime2')) AS EventTime,
+    event_data.value('(event/data[@name="is_success"]/value)[1]', 'int') AS IsSuccess,
+    event_data.value('(event/action[@name="username"]/value)[1]', 'sysname') AS LoginName,
+    event_data.value('(event/action[@name="nt_username"]/value)[1]', 'sysname') AS NTUser,
+    event_data.value('(event/action[@name="client_hostname"]/value)[1]', 'nvarchar(200)') AS HostName,
+    event_data.value('(event/action[@name="client_app_name"]/value)[1]', 'nvarchar(200)') AS AppName,
+    event_data.value('(event/action[@name="session_id"]/value)[1]', 'int') AS SessionID
+FROM (
+    SELECT CAST(event_data AS XML) AS event_data
+    FROM sys.fn_xe_file_target_read_file('D:\MSSQL\XE\LoginAudit*.xel', NULL, NULL, NULL)
+) AS X
+)
+SELECT
+    LoginName,
+    COUNT(*) AS LoginCount,
+    MIN(EventTime) AS FirstSeen,
+    MAX(EventTime) AS LastSeen
+FROM cte 
+GROUP BY LoginName
+ORDER BY LoginCount DESC;
